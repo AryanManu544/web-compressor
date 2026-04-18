@@ -1,5 +1,6 @@
 // Import your audio compressor (assuming you are using ES Modules)
 import { compressAudio } from '../compressors/lossy/audio-mp3.js';
+import { FileProcessor } from '../utils/file-reader.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessage = document.getElementById('error-message');
     const resultsDashboard = document.getElementById('results-dashboard');
     const btnDownload = document.getElementById('btn-download');
+    const statusBox = document.getElementById('verification-status');
 
     let currentFile = null;
     let processedBlob = null;
@@ -46,10 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleFileSelect(file) {
         hideError();
         resultsDashboard.classList.add('hidden');
+        if (statusBox) statusBox.classList.add('hidden');
         
         if (!file) return;
 
-        // Strict validation based on project requirements
         const allowedTypes = ['text/plain', 'text/csv', 'image/jpeg', 'image/png', 'audio/mpeg', 'audio/wav', 'video/mp4'];
         
         if (!allowedTypes.includes(file.type)) {
@@ -61,16 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentFile = file;
         fileNameDisplay.textContent = currentFile.name;
-        
-        // Enable buttons with a smooth transition
         btnCompress.disabled = false;
         btnDecompress.disabled = false;
     }
 
-    // --- The Master Router ---
+    // --- Compression Logic ---
     btnCompress.addEventListener('click', async () => {
         if (!currentFile) return;
-        
         btnCompress.disabled = true;
         btnCompress.textContent = "Compressing...";
 
@@ -78,22 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let result;
             const fileType = currentFile.type;
 
-            // Route to specific squad member's engine
             if (fileType.startsWith('audio/')) {
-                // YOUR MODULE
                 result = await compressAudio(currentFile); 
-            } else if (fileType.startsWith('image/')) {
-                // Aryan / Gitesh's module
-                // result = await compressImage(currentFile); 
-                throw new Error("Image module pending integration.");
-            } else if (fileType.startsWith('text/')) {
-                // Kartikay's module
-                // result = await compressText(currentFile);
-                throw new Error("Text module pending integration.");
-            } else if (fileType.startsWith('video/')) {
-                // Aryan's video module via Prakhar's background script
-                // result = await processVideoViaWorker(currentFile);
-                throw new Error("Video background worker pending integration.");
+            } else {
+                throw new Error("Module pending integration.");
             }
 
             processedBlob = result.blob;
@@ -105,6 +92,36 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btnCompress.disabled = false;
             btnCompress.textContent = "Compress File";
+        }
+    });
+
+    // --- Decompression Logic ---
+    btnDecompress.addEventListener('click', async () => {
+        if (!currentFile) return;
+
+        btnDecompress.disabled = true;
+        btnDecompress.textContent = "Decompressing...";
+
+        try {
+            // 1. Route the file through your logic
+            const result = await FileProcessor.routeDecompression(currentFile);
+
+            // 2. Verification: SHA-256 Hash Check
+            const hashBuffer = await crypto.subtle.digest('SHA-256', result.data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            // 3. Update the UI
+            resultsDashboard.classList.remove('hidden');
+            statusBox.classList.remove('hidden');
+            statusBox.innerHTML = `<strong>Status:</strong> Success<br><strong>Method:</strong> ${result.method}<br><strong>SHA-256:</strong> ${hashHex.substring(0, 16)}...`;
+            statusBox.style.color = "#4caf50";
+
+        } catch (error) {
+            showError(`Decompression failed: ${error.message}`);
+        } finally {
+            btnDecompress.disabled = false;
+            btnDecompress.textContent = "Decompress File";
         }
     });
 
