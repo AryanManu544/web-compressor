@@ -1,77 +1,49 @@
-import { compressLosslessPNG } from '../scripts/compressors/lossless/image-png.js';
-import { getCompressionRatio, getSpaceSavings } from '../scripts/utils/metrics.js';
+/**
+ * background/service-worker.js
+ * ──────────────────────────────────────────────────────────────────
+ * Extension Lifecycle & Keep-Alive Manager.
+ * * In Manifest V3, service workers are aggressively terminated by Chrome 
+ * after 30 seconds of inactivity. This script prevents the extension from 
+ * falling asleep during heavy WebAssembly/Encoding tasks running in the UI.
+ * * Assigned to: Prakhar (Background Architecture)
+ * ──────────────────────────────────────────────────────────────────
+ */
+
 let keepAliveInterval = null;
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'START_COMPRESSION') {
-    // Calling chrome.runtime.getPlatformInfo() prevents Chrome from terminating the service worker during heavy WASM tasks
-    keepAliveInterval = setInterval(() => {
-      chrome.runtime.getPlatformInfo((info) => {
-        // Ping: keep-alive
-      });
-    }, 20000);
-
-    //Pass payload to the async handler
-    handleCompressionTask(message.payload)
-      .then((result) => {
-        // Clear interval upon completion
-        if (keepAliveInterval) {
-          clearInterval(keepAliveInterval);
-          keepAliveInterval = null;
-        }
-        sendResponse({ success: true, data: result });
-      })
-      .catch((error) => {
-        // Clear interval upon execution failure
-        if (keepAliveInterval) {
-          clearInterval(keepAliveInterval);
-          keepAliveInterval = null;
-        }
-        sendResponse({ success: false, error: error.toString() });
-      });
-
-    // Return true to indicate we are sending a response asynchronously
-    return true;
-  }
+// Log when the extension is installed or updated
+chrome.runtime.onInstalled.addListener(() => {
+    console.log("MACS-FC Extension successfully installed and background worker active.");
 });
 
-async function handleCompressionTask(payload) {
-  const startTime = performance.now();
-  const fileType = payload?.fileType || 'unknown';
-
-  //Switch statement routing based on fileType
-  switch (fileType) {
-
-    case 'video/mp4':
-      console.log('Processing video/mp4: Logic for processing mp4 will go here.');
-      break;
-    case 'image/jpeg':
-      console.log('Processing image/jpeg: Logic for processing jpeg will go here.');
-      break;
-    case 'image/png':
-      // Hand the raw file to Gitesh's compressor and wait for the result
-      compressedData = await compressLosslessPNG(fileData);
-      metrics.spaceSavings = getSpaceSavings(originalSize, compressedData.byteLength);
-      metrics.ratio = getCompressionRatio(originalSize, compressedData.byteLength);
-      break;
-    case 'text/plain':
-      console.log('Processing text/plain: Logic for processing plain text will go here.');
-      break;
-    default:
-      console.log(`Unsupported file type received: ${fileType}`);
-  }
-
-  //Calculate time taken
-  const endTime = performance.now();
-  const timeTakenMs = endTime - startTime;
-
-  //Return the mock success object structure
-  return {
-    processedBuffer: new ArrayBuffer(0),
-    metrics: {
-      originalSize: payload?.size || 1024 * 1024,
-      compressedSize: 512 * 1024,
-      timeTakenMs: timeTakenMs
+// Listen for lifecycle triggers from the UI router
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    
+    if (message.action === 'START_HEAVY_PROCESSING') {
+        console.log("[Service Worker] Heavy processing started. Initiating keep-alive protocol...");
+        
+        // Prakhar's Keep-Alive trick:
+        // Calling getPlatformInfo regularly resets the Service Worker termination timer
+        if (!keepAliveInterval) {
+            keepAliveInterval = setInterval(() => {
+                chrome.runtime.getPlatformInfo((info) => {
+                    // Silent ping to keep the extension awake
+                });
+            }, 20000); // 20 seconds is safely under Chrome's 30-second kill threshold
+        }
+        sendResponse({ status: "Keep-alive active" });
+    } 
+    
+    else if (message.action === 'STOP_HEAVY_PROCESSING') {
+        console.log("[Service Worker] Processing complete. Releasing keep-alive.");
+        
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+        }
+        sendResponse({ status: "Keep-alive deactivated" });
     }
-  };
-}
+
+    // Return true to keep the message channel open for async responses
+    return true; 
+});

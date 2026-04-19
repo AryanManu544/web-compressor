@@ -1,10 +1,12 @@
-// Import your audio compressor (assuming you are using ES Modules)
 import { compressAudio } from '../compressors/lossy/audio-mp3.js';
-import { FileProcessor } from '../utils/file-reader.js';
 import { compressText, decompressText } from '../compressors/lossless/text-gz.js';
+import { compressLosslessPNG } from '../compressors/lossless/image-png.js';
+import { compressJPG, decompressJPG } from '../compressors/lossy/image-jpg.js';
+import { compressMP4, decompressMP4 } from '../compressors/lossy/video-mp4.js';
+import { FileProcessor } from '../utils/file-reader.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
+    // --- DOM Elements ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const fileNameDisplay = document.getElementById('file-name');
@@ -17,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentFile = null;
     let processedBlob = null;
-    let lastOriginalHash = null; // Store hash for decompression verification
+    let lastOriginalHash = null; // Stores SHA-256 hash for lossless text verification
 
     // --- Drag and Drop Aesthetics ---
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -38,8 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     dropZone.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        handleFileSelect(dt.files[0]);
+        handleFileSelect(e.dataTransfer.files[0]);
     });
 
     fileInput.addEventListener('change', (e) => {
@@ -70,12 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFile = file;
         fileNameDisplay.textContent = currentFile.name;
 
-        // Enable buttons with a smooth transition
+        // Enable buttons
         btnCompress.disabled = false;
         btnDecompress.disabled = false;
     }
 
-    // --- Compression Logic ---
+    // --- COMPRESSION MASTER ROUTER ---
     btnCompress.addEventListener('click', async () => {
         if (!currentFile) return;
 
@@ -87,26 +88,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const fileType = currentFile.type;
 
             if (fileType.startsWith('audio/')) {
-                // YOUR MODULE
                 result = await compressAudio(currentFile);
-            } else if (fileType.startsWith('image/')) {
-                // Aryan / Gitesh's module
-                throw new Error("Image module pending integration.");
-            } else if (fileType.startsWith('text/') || currentFile.name.endsWith('.csv')) {
-                // Kartikay's text compression module (pako gzip + SHA-256)
+            } 
+            else if (fileType === 'image/png') {
+                result = await compressLosslessPNG(currentFile);
+            } 
+            else if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
+                result = await compressJPG(currentFile);
+            } 
+            else if (fileType === 'video/mp4') {
+                result = await compressMP4(currentFile);
+            } 
+            else if (fileType.startsWith('text/') || currentFile.name.endsWith('.csv')) {
                 result = await compressText(currentFile);
                 lastOriginalHash = result.originalHash;
                 showVerification('compress', result.originalHash);
-            } else if (fileType.startsWith('video/')) {
-                // Aryan's video module via Prakhar's background script
-                throw new Error("Video background worker pending integration.");
-            } else {
+            } 
+            else {
                 throw new Error("Cannot compress this file type.");
             }
 
             processedBlob = result.blob;
-            updateDashboard(result.metrics);
-            setupDownload(processedBlob, `compressed_${currentFile.name}.gz`);
+            updateDashboard(result.metrics, result.psnr);
+            
+            // Handle output extensions
+            let ext = currentFile.name.split('.').pop();
+            if (fileType.startsWith('text/') || ext === 'csv') ext = ext + '.gz';
+            setupDownload(processedBlob, `compressed_${currentFile.name.split('.')[0]}.${ext}`);
 
         } catch (error) {
             showError(`Compression failed: ${error.message}`);
@@ -116,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Decompression Handler ---
+    // --- DECOMPRESSION MASTER ROUTER ---
     btnDecompress.addEventListener('click', async () => {
         if (!currentFile) return;
 
@@ -128,36 +136,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const fileName = currentFile.name || '';
             const fileType = currentFile.type;
 
-            // Route .gz files to Kartikay's text decompressor
+            // 1. Text / GZ Routing
             if (fileName.endsWith('.gz') || fileType === 'application/gzip' || fileType === 'application/x-gzip') {
                 result = await decompressText(currentFile, lastOriginalHash);
-                
                 if (result.verification) {
                     showVerification('decompress', null, result.verification);
                 }
-            } else {
-                // Route all other files through Lavisha's FileProcessor architecture
-                result = await FileProcessor.routeDecompression(currentFile);
-
-                // Lavisha's Verification: SHA-256 Hash Check adapted for Kartikay's UI
-                if (result && result.data) {
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', result.data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    
-                    showVerification('decompress', null, {
-                        match: lastOriginalHash ? (hashHex === lastOriginalHash) : null,
-                        computed: hashHex,
-                        expected: lastOriginalHash
-                    });
-                }
+            } 
+            // 2. JPG Routing
+            else if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
+                result = await decompressJPG(currentFile);
+            }
+            // 3. MP4 Routing
+            else if (fileType === 'video/mp4') {
+                result = await decompressMP4(currentFile);
+            }
+            // 4. Fallback (PNG, Audio) via FileProcessor
+            else {
+                const readerRes = await FileProcessor.routeDecompression(currentFile);
+                result = { 
+                    blob: new Blob([readerRes.data], { type: currentFile.type }),
+                    metrics: { originalSize: '--', compressedSize: '--', ratio: 'N/A', savings: 'N/A' }
+                };
             }
 
             processedBlob = result.blob;
-            // Update metrics if the decompression function returns them
-            if (result.metrics) updateDashboard(result.metrics);
+            
+            if (result.metrics) {
+                updateDashboard(result.metrics, result.psnr);
+            }
 
-            // Determine decompressed filename
+            // Handle output names
             let downloadName = fileName.endsWith('.gz')
                 ? fileName.slice(0, -3)
                 : `decompressed_${fileName}`;
@@ -172,11 +181,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- UI Update Utilities ---
-    function updateDashboard(metrics) {
+    function updateDashboard(metrics, psnr = null) {
         document.getElementById('val-original').textContent = metrics.originalSize;
         document.getElementById('val-compressed').textContent = metrics.compressedSize;
         document.getElementById('val-ratio').textContent = metrics.ratio;
-        document.getElementById('val-savings').textContent = `${metrics.savings}%`;
+        document.getElementById('val-savings').textContent = metrics.savings; // metrics.js already adds the '%' sign
+
+        // Display PSNR for lossy media if it was returned
+        if (psnr !== null && psnr !== undefined) {
+            verificationStatus.innerHTML = `
+                <strong>📊 Quality Assessment</strong><br>
+                <small style="color:#2ecc71;">PSNR: ${psnr} dB</small>
+            `;
+            verificationStatus.style.borderColor = 'rgba(46, 204, 113, 0.4)';
+            verificationStatus.classList.remove('hidden');
+        }
 
         resultsDashboard.classList.remove('hidden');
         btnDownload.classList.remove('hidden');
@@ -191,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url); // Clean up memory
         };
     }
 
@@ -204,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage.classList.add('hidden');
     }
 
-    // --- SHA-256 Verification Display ---
+    // --- SHA-256 Verification Display (Kartikay's Logic) ---
     function showVerification(mode, hash, verification) {
         verificationStatus.classList.remove('hidden');
 

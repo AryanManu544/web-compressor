@@ -21,6 +21,15 @@
     "unlimitedStorage",
     "offscreen"
   ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/ffmpeg-core.js",
+        "lib/ffmpeg-core.wasm"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   }

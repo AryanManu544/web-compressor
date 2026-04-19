@@ -9,25 +9,46 @@
 body {
     width: 380px;
     min-height: 450px;
-    background-color: #0d0d12;
-    color: #e0e0e0;
-    overflow-x: hidden; /* Prevent horizontal scrollbars */
+    /* Deep, moody background to make the white/red glass pop */
+    background: linear-gradient(135deg, #130404 0%, #000000 100%);
+    color: #ffffff;
+    overflow-x: hidden;
     padding: 16px;
     display: flex;
     justify-content: center;
     align-items: flex-start;
+    position: relative;
 }
 
-/* --- Glassmorphism Foundation --- */
+/* --- The Secret Sauce: Background Glow --- */
+/* This creates a hazy red orb behind the glass that gets blurred */
+body::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    left: -40px;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(220, 38, 38, 0.25) 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* --- Red & White Glassmorphism Foundation --- */
 .glass-container {
     width: 100%;
-    background: rgba(25, 25, 35, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    position: relative;
+    z-index: 1;
+    /* The hazy, tinted glass effect */
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.15); /* Slightly brighter top edge for depth */
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    padding: 24px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* --- Header --- */
@@ -37,40 +58,44 @@ header {
 }
 
 header h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: 1px;
-    background: linear-gradient(90deg, #8a2be2, #4b0082);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    /* Stark white to pure red gradient */
+    background: linear-gradient(90deg, #ffffff 30%, #dc2626 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-shadow: 0px 2px 10px rgba(220, 38, 38, 0.2);
 }
 
 .subtitle {
-    font-size: 12px;
-    color: #888;
+    font-size: 11px;
+    color: #d1d5db;
     margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 /* --- Upload Zone --- */
 .upload-zone {
-    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border: 2px dashed rgba(255, 255, 255, 0.25);
     border-radius: 12px;
     padding: 24px 16px;
     text-align: center;
-    transition: all 0.3s ease;
-    background: rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.02);
     margin-bottom: 20px;
     cursor: pointer;
 }
 
 .upload-zone:hover, .upload-zone.dragover {
-    border-color: #8a2be2;
-    background: rgba(138, 43, 226, 0.05);
+    border-color: #dc2626;
+    background: rgba(220, 38, 38, 0.05);
+    box-shadow: inset 0 0 20px rgba(220, 38, 38, 0.15);
 }
 
 .file-input {
-    display: none; /* Hide default file input */
+    display: none;
 }
 
 .upload-label {
@@ -81,18 +106,18 @@ header h1 {
 }
 
 #file-name {
-    font-weight: 500;
-    color: #fff;
+    font-weight: 600;
+    color: #ffffff;
     font-size: 14px;
-    word-break: break-all; /* Prevents long file names from breaking the UI */
+    word-break: break-all;
 }
 
 .file-types {
     font-size: 11px;
-    color: #666;
+    color: #9ca3af;
 }
 
-/* --- Buttons --- */
+/* --- Action Controls --- */
 .action-group {
     display: flex;
     gap: 12px;
@@ -108,60 +133,53 @@ header h1 {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
 .primary-btn {
-    background: rgba(138, 43, 226, 0.8);
+    background: #dc2626;
     color: white;
-    border: 1px solid rgba(138, 43, 226, 0.5);
+    border: 1px solid #ef4444;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.2);
 }
 
 .primary-btn:hover:not(:disabled) {
-    background: rgba(138, 43, 226, 1);
-    box-shadow: 0 0 12px rgba(138, 43, 226, 0.4);
+    background: #ef4444;
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+    transform: translateY(-1px);
 }
 
 .secondary-btn {
     background: rgba(255, 255, 255, 0.05);
-    color: #e0e0e0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .secondary-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
-.download-btn {
-    width: 100%;
-    background: rgba(46, 204, 113, 0.2);
-    color: #2ecc71;
-    border: 1px solid rgba(46, 204, 113, 0.4);
-    margin-top: 16px;
-}
-
-.download-btn:hover:not(:disabled) {
-    background: rgba(46, 204, 113, 0.3);
-}
-
-/* --- Metrics Dashboard --- */
+/* --- Dynamic Metrics Dashboard --- */
 .dashboard {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.4);
     border-radius: 12px;
     padding: 16px;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .dashboard h3 {
-    font-size: 14px;
+    font-size: 12px;
     margin-bottom: 12px;
-    color: #bbb;
+    color: #d1d5db;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
 }
 
 .metrics-grid {
@@ -172,37 +190,40 @@ header h1 {
 
 .metric-card {
     background: rgba(255, 255, 255, 0.03);
-    padding: 10px;
+    padding: 12px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .metric-card.highlight {
-    background: rgba(138, 43, 226, 0.1);
-    border: 1px solid rgba(138, 43, 226, 0.2);
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.2);
 }
 
 .metric-label {
     font-size: 11px;
-    color: #888;
+    color: #9ca3af;
+    text-transform: uppercase;
 }
 
 .metric-value {
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
 }
 
 /* --- Verification & Errors --- */
 .verification-box {
-    margin-top: 12px;
-    padding: 10px;
+    margin-top: 16px;
+    padding: 12px;
     font-size: 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     text-align: center;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .alert {
@@ -211,12 +232,28 @@ header h1 {
     font-size: 13px;
     margin-bottom: 16px;
     text-align: center;
+    font-weight: 500;
 }
 
 .alert.error {
-    background: rgba(231, 76, 60, 0.2);
-    color: #e74c3c;
-    border: 1px solid rgba(231, 76, 60, 0.4);
+    background: rgba(220, 38, 38, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.download-btn {
+    width: 100%;
+    /* Striking contrast for the final action */
+    background: rgba(255, 255, 255, 0.95);
+    color: #dc2626;
+    border: none;
+    margin-top: 16px;
+    font-weight: 700;
+}
+
+.download-btn:hover:not(:disabled) {
+    background: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
 }
 
 .hidden {

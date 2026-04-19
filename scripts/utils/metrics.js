@@ -1,11 +1,10 @@
-export const Metrics = {
-  /**
-   * Calculates the compression ratio between original and compressed sizes.
-   * @param {number} originalSize 
-   * @param {number} compressedSize 
-   * @returns {string} Formatted ratio string (e.g., '2.5:1')
-   */
-  getCompressionRatio(originalSize, compressedSize) {
+/**
+ * Calculates the compression ratio between original and compressed sizes.
+ * @param {number} originalSize 
+ * @param {number} compressedSize 
+ * @returns {string} Formatted ratio string (e.g., '2.5:1')
+ */
+export function getCompressionRatio(originalSize, compressedSize) {
     if (originalSize == null || compressedSize == null) return 'N/A';
     const o = Number(originalSize);
     const c = Number(compressedSize);
@@ -17,15 +16,15 @@ export const Metrics = {
     // Format up to 2 decimal places, removing unnecessary trailing zeros
     const formattedRatio = (Math.round(ratio * 100) / 100).toString();
     return `${formattedRatio}:1`;
-  },
+}
 
-  /**
-   * Calculates the space savings as a percentage.
-   * @param {number} originalSize 
-   * @param {number} compressedSize 
-   * @returns {string} Percentage formatted to two decimal places (e.g., '50.00%')
-   */
-  getSpaceSavings(originalSize, compressedSize) {
+/**
+ * Calculates the space savings as a percentage.
+ * @param {number} originalSize 
+ * @param {number} compressedSize 
+ * @returns {string} Percentage formatted to two decimal places (e.g., '50.00%')
+ */
+export function getSpaceSavings(originalSize, compressedSize) {
     if (originalSize == null || compressedSize == null) return '0.00%';
     const o = Number(originalSize);
     const c = Number(compressedSize);
@@ -34,28 +33,41 @@ export const Metrics = {
 
     const savings = ((o - c) / o) * 100;
     return `${savings.toFixed(2)}%`;
-  },
+}
 
-  /**
-   * Calculates Peak Signal-to-Noise Ratio (PSNR) for image streams.
-   * @param {Uint8Array|number[]} originalPixels 
-   * @param {Uint8Array|number[]} compressedPixels 
-   * @returns {number} PSNR value or Infinity if they are perfectly identical.
-   */
-  calculatePSNR(originalPixels, compressedPixels) {
+/**
+ * Formats raw bytes into a human-readable string for the UI.
+ * @param {number} bytes 
+ * @returns {string} Formatted size (e.g., '1.5 MB')
+ */
+export function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Calculates Peak Signal-to-Noise Ratio (PSNR) for image streams.
+ * @param {Uint8Array|number[]} originalPixels 
+ * @param {Uint8Array|number[]} compressedPixels 
+ * @returns {number} PSNR value or Infinity if they are perfectly identical.
+ */
+export function calculatePSNR(originalPixels, compressedPixels) {
     if (!originalPixels || !compressedPixels) return 0;
     if (originalPixels.length === 0) return 0;
     if (originalPixels.length !== compressedPixels.length) {
-      console.warn("calculatePSNR: Pixel arrays must be the same length.");
-      return 0;
+        console.warn("calculatePSNR: Pixel arrays must be the same length.");
+        return 0;
     }
 
     let mse = 0;
     const length = originalPixels.length;
 
     for (let i = 0; i < length; i++) {
-      const diff = originalPixels[i] - compressedPixels[i];
-      mse += diff * diff;
+        const diff = originalPixels[i] - compressedPixels[i];
+        mse += diff * diff;
     }
 
     mse = mse / length;
@@ -65,17 +77,16 @@ export const Metrics = {
 
     const MAX_I = 255;
     return 10 * Math.log10((MAX_I * MAX_I) / mse);
-  },
+}
 
-  /**
-   * Stub implementation for Structural Similarity Index (SSIM).
-   * Math stub to be filled in with standard windowing variables.
-   * @param {Object} img1 - Mock image 1 data
-   * @param {Object} img2 - Mock image 2 data
-   * @returns {number} Value between -1 and 1 indicating structural similarity. 
-   */
-  calculateSSIM(img1, img2) {
+/**
+ * Stub implementation for Structural Similarity Index (SSIM).
+ * Math stub to be filled in with standard windowing variables.
+ * @param {Object} img1 - Mock image 1 data
+ * @param {Object} img2 - Mock image 2 data
+ * @returns {number} Value between -1 and 1 indicating structural similarity. 
+ */
+export function calculateSSIM(img1, img2) {
     if (!img1 || !img2) return 0;
     return 1.0;
-  }
-};
+}
