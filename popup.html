@@ -17,10 +17,10 @@
 
         <main>
             <div class="upload-zone" id="drop-zone">
-                <input type="file" id="file-input" class="file-input" accept=".txt,.csv,.jpg,.png,.mp3,.wav,.mp4,.pdf">
+                <input type="file" id="file-input" class="file-input" accept=".txt,.csv,.jpg,.jpeg,.png,.mp3,.wav,.mp4,.pdf,.gz">
                 <label for="file-input" class="upload-label">
                     <span id="file-name">Click or drag file here</span>
-                    <span class="file-types">Supported: TXT, CSV, JPG, PNG, MP3, WAV, MP4, PDF</span>
+                    <span class="file-types">Supported: TXT, CSV, JPG, PNG, MP3, WAV, MP4, PDF, GZ</span>
                 </label>
             </div>
 
@@ -40,7 +40,7 @@
                         <span class="metric-value" id="val-original">--</span>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Compressed</span>
+                        <span class="metric-label" id="ui-label-compressed">Compressed</span>
                         <span class="metric-value" id="val-compressed">--</span>
                     </div>
                     <div class="metric-card highlight">
@@ -48,7 +48,7 @@
                         <span class="metric-value" id="val-ratio">--</span>
                     </div>
                     <div class="metric-card highlight">
-                        <span class="metric-label">Savings</span>
+                        <span class="metric-label" id="ui-label-savings">Savings</span>
                         <span class="metric-value" id="val-savings">--</span>
                     </div>
                 </div>
@@ -58,12 +58,18 @@
                 <button id="btn-download" class="btn download-btn hidden">Download Result</button>
             </div>
         </main>
+
+        <footer class="footer-note">Built by Stochastic</footer>
     </div>
 
     <script src="lib/lamejs.min.js"></script>
+    <script src="lib/pako.min.js"></script>
+    <script src="lib/upng.min.js"></script>
+    <script src="lib/jpeg-js.min.js"></script>
     <script src="lib/pdf-lib.min.js"></script>
+    <script src="lib/ffmpeg-core.js"></script>
+    <script src="lib/ffmpeg.min.js"></script>
 
     <script src="scripts/ui/dom-handler.js" type="module"></script>
 </body>
-
 </html>

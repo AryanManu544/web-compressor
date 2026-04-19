@@ -1,8 +1,12 @@
 import { compressAudio } from '../compressors/lossy/audio-mp3.js';
-import { compressPDF } from '../compressors/lossless/document-pdf.js';
+import { compressText, decompressText } from '../compressors/lossless/text-gz.js';
+import { compressLosslessPNG } from '../compressors/lossless/image-png.js';
+import { compressJPG, decompressJPG } from '../compressors/lossy/image-jpg.js';
+import { compressMP4, decompressMP4 } from '../compressors/lossy/video-mp4.js';
+import { FileProcessor } from '../utils/file-reader.js';
+
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const fileNameDisplay = document.getElementById('file-name');
@@ -15,9 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentFile = null;
     let processedBlob = null;
-    let lastOriginalHash = null; // Stores SHA-256 hash for lossless text verification
+    let lastOriginalHash = null;
 
-    // --- Drag and Drop Aesthetics ---
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropZone.addEventListener(eventName, preventDefaults, false);
     });
@@ -43,7 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
         handleFileSelect(e.target.files[0]);
     });
 
-    // --- File Handling & Validation ---
     function handleFileSelect(file) {
         hideError();
         resultsDashboard.classList.add('hidden');
@@ -51,16 +53,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!file) return;
 
-        // Strict validation based on project requirements + GZIP support
-        // Find this array and add 'application/pdf'
+        const fileName = (file.name || '').toLowerCase();
+
         const allowedTypes = [
             'text/plain', 'text/csv', 'image/jpeg', 'image/png',
             'audio/mpeg', 'audio/wav', 'video/mp4', 'application/gzip', 'application/x-gzip',
             'application/pdf'
         ];
 
-        if (!allowedTypes.includes(file.type) && !file.name.endsWith('.gz')) {
-            showError("Unsupported format. Please upload TXT, CSV, JPG, PNG, MP3, WAV, MP4, or GZ.");
+        if (!allowedTypes.includes(file.type) && !fileName.endsWith('.gz')) {
+            showError("Unsupported format. Please upload TXT, CSV, JPG, PNG, MP3, WAV, MP4, PDF, or GZ.");
             btnCompress.disabled = true;
             btnDecompress.disabled = true;
             return;
@@ -69,12 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
         currentFile = file;
         fileNameDisplay.textContent = currentFile.name;
 
-        // Enable buttons
         btnCompress.disabled = false;
         btnDecompress.disabled = false;
     }
 
-    // --- COMPRESSION MASTER ROUTER ---
     btnCompress.addEventListener('click', async () => {
         if (!currentFile) return;
 
@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (fileType === 'video/mp4') {
                 result = await compressMP4(currentFile);
             }
-            // Find your COMPRESSION MASTER ROUTER and update the text/csv `else if` block:
             else if (fileType.startsWith('text/') || currentFile.name.endsWith('.csv') || fileType === 'application/pdf') {
                 result = await compressText(currentFile);
                 lastOriginalHash = result.originalHash;
@@ -108,12 +107,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             processedBlob = result.blob;
-            updateDashboard(result.metrics, result.psnr);
 
-            // Handle output extensions
-            let ext = currentFile.name.split('.').pop();
-            if (fileType.startsWith('text/') || ext === 'csv') ext = ext + '.gz';
-            setupDownload(processedBlob, `compressed_${currentFile.name.split('.')[0]}.${ext}`);
+            let downloadName;
+            if (fileType.startsWith('text/') || currentFile.name.endsWith('.csv') || fileType === 'application/pdf') {
+                const baseName = currentFile.name.split('.')[0];
+                downloadName = `${baseName}.${currentFile.name.split('.').pop()}.gz`;
+            } else {
+                downloadName = currentFile.name;
+            }
+
+            currentFile = new File([processedBlob], downloadName, {
+                type: processedBlob.type || currentFile.type,
+                lastModified: Date.now()
+            });
+
+            updateDashboard(result.metrics, result.psnr, 'compress');
+
+            setupDownload(processedBlob, downloadName.startsWith('compressed_') ? downloadName : `compressed_${downloadName}`);
 
         } catch (error) {
             showError(`Compression failed: ${error.message}`);
@@ -123,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- DECOMPRESSION MASTER ROUTER ---
     btnDecompress.addEventListener('click', async () => {
         if (!currentFile) return;
 
@@ -133,24 +142,21 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let result;
             const fileName = currentFile.name || '';
+            const normalizedName = fileName.toLowerCase();
             const fileType = currentFile.type;
 
-            // 1. Text / GZ Routing
-            if (fileName.endsWith('.gz') || fileType === 'application/gzip' || fileType === 'application/x-gzip') {
+            if (normalizedName.endsWith('.gz') || fileType === 'application/gzip' || fileType === 'application/x-gzip') {
                 result = await decompressText(currentFile, lastOriginalHash);
                 if (result.verification) {
                     showVerification('decompress', null, result.verification);
                 }
             }
-            // 2. JPG Routing
             else if (fileType === 'image/jpeg' || fileType === 'image/jpg') {
                 result = await decompressJPG(currentFile);
             }
-            // 3. MP4 Routing
             else if (fileType === 'video/mp4') {
                 result = await decompressMP4(currentFile);
             }
-            // 4. Fallback (PNG, Audio) via FileProcessor
             else {
                 const readerRes = await FileProcessor.routeDecompression(currentFile);
                 result = {
@@ -162,11 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
             processedBlob = result.blob;
 
             if (result.metrics) {
-                updateDashboard(result.metrics, result.psnr);
+                updateDashboard(result.metrics, result.psnr, 'decompress');
             }
 
-            // Handle output names
-            let downloadName = fileName.endsWith('.gz')
+            let downloadName = normalizedName.endsWith('.gz')
                 ? fileName.slice(0, -3)
                 : `decompressed_${fileName}`;
             setupDownload(processedBlob, downloadName);
@@ -179,17 +184,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- UI Update Utilities ---
-    function updateDashboard(metrics, psnr = null) {
+    function updateDashboard(metrics, psnr = null, mode = 'compress') {
+        const isDecompress = mode === 'decompress';
+        
+        const labelCompressed = document.getElementById('ui-label-compressed');
+        const labelSavings = document.getElementById('ui-label-savings');
+        
+        if (labelCompressed) labelCompressed.textContent = isDecompress ? 'Decompressed' : 'Compressed';
+        if (labelSavings) labelSavings.textContent = isDecompress ? 'Upscaled By' : 'Savings';
+
         document.getElementById('val-original').textContent = metrics.originalSize;
         document.getElementById('val-compressed').textContent = metrics.compressedSize;
         document.getElementById('val-ratio').textContent = metrics.ratio;
-        document.getElementById('val-savings').textContent = metrics.savings; // metrics.js already adds the '%' sign
+        
+        let finalSavings = metrics.savings;
+        if (isDecompress && finalSavings.startsWith('-')) {
+            finalSavings = finalSavings.substring(1); 
+        }
+        document.getElementById('val-savings').textContent = finalSavings; 
 
-        // Display PSNR for lossy media if it was returned
         if (psnr !== null && psnr !== undefined) {
             verificationStatus.innerHTML = `
-                <strong>📊 Quality Assessment</strong><br>
+                <strong>Quality Assessment</strong><br>
                 <small style="color:#2ecc71;">PSNR: ${psnr} dB</small>
             `;
             verificationStatus.style.borderColor = 'rgba(46, 204, 113, 0.4)';
@@ -209,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url); // Clean up memory
+            URL.revokeObjectURL(url);
         };
     }
 
@@ -222,13 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage.classList.add('hidden');
     }
 
-    // --- SHA-256 Verification Display (Kartikay's Logic) ---
     function showVerification(mode, hash, verification) {
         verificationStatus.classList.remove('hidden');
 
         if (mode === 'compress' && hash) {
             verificationStatus.innerHTML = `
-                <strong>🔒 SHA-256 Fingerprint</strong><br>
+                <strong>SHA-256 Fingerprint</strong><br>
                 <code style="font-size:10px;word-break:break-all;color:#8a2be2;">${hash}</code>
                 <br><small style="color:#888;">This hash will verify lossless rebuild on decompression.</small>
             `;
@@ -236,14 +251,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'decompress' && verification) {
             if (verification.match === true) {
                 verificationStatus.innerHTML = `
-                    <strong>✅ Lossless Rebuild Verified</strong><br>
+                    <strong>Lossless Rebuild Verified</strong><br>
                     <small style="color:#2ecc71;">SHA-256 hashes match — byte-for-byte identical reconstruction.</small><br>
                     <code style="font-size:10px;word-break:break-all;color:#2ecc71;">${verification.computed}</code>
                 `;
                 verificationStatus.style.borderColor = 'rgba(46, 204, 113, 0.4)';
             } else if (verification.match === false) {
                 verificationStatus.innerHTML = `
-                    <strong>❌ Hash Mismatch</strong><br>
+                    <strong>Hash Mismatch</strong><br>
                     <small style="color:#e74c3c;">Data may have been altered.</small><br>
                     <strong>Expected:</strong> <code style="font-size:10px;word-break:break-all;">${verification.expected}</code><br>
                     <strong>Got:</strong> <code style="font-size:10px;word-break:break-all;">${verification.computed}</code>
@@ -251,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 verificationStatus.style.borderColor = 'rgba(231, 76, 60, 0.4)';
             } else {
                 verificationStatus.innerHTML = `
-                    <strong>🔓 Decompressed Successfully</strong><br>
+                    <strong>Decompressed Successfully</strong><br>
                     <small style="color:#888;">No original hash available for comparison.</small><br>
                     <code style="font-size:10px;word-break:break-all;color:#8a2be2;">${verification.computed}</code>
                 `;
